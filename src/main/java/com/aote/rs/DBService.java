@@ -24,9 +24,11 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.collection.internal.PersistentSet;
+import org.hibernate.engine.spi.CascadeStyle;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.metadata.ClassMetadata;
 import org.hibernate.persister.entity.AbstractEntityPersister;
+import org.hibernate.persister.entity.EntityPersister;
 import org.hibernate.type.SetType;
 import org.hibernate.type.Type;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,7 +82,7 @@ public class DBService {
 					//获取关联字段
 					SetType st = (SetType)type;
 					SessionFactoryImplementor sf = (SessionFactoryImplementor) sessionFactory;
-					
+					org.hibernate.persister.entity.Joinable ja = st.getAssociatedJoinable(sf);
 					JSONArray association = new JSONArray();
 					String idName = cmd.getIdentifierPropertyName();
 					Type idType = cmd.getIdentifierType();
@@ -89,17 +91,27 @@ public class DBService {
 					jo.put("table", ((AbstractEntityPersister) cmd).getTableName());
 					jo.put("id", idName);
 					jo.put("type", idType.getName());
+					//去掉entity.
+					jo.put("link", ja.getName().substring(entity.length()+1));
+					
+					EntityPersister ps = sf.getEntityPersister(entity);
+					CascadeStyle[] ccs = ps.getPropertyCascadeStyles();
+					String ccsOptions = "";
+					for(CascadeStyle cs : ccs) {
+						ccsOptions += "," + cs;
+					}
+					jo.put("cascade", ccsOptions.length() > 0 ? ccsOptions.substring(1).replace("STYLE_NONE,", "").replace("[", "").replace("]", "") : "");
+					
 					association.put(jo);
 					jo = new JSONObject();
-					org.hibernate.persister.entity.Joinable ja = st.getAssociatedJoinable(sf);
-					String[] names = ja.getKeyColumnNames();
+					String[] foreignKeys = ja.getKeyColumnNames();
 					jo.put("entity", st.getAssociatedEntityName(sf));
 					jo.put("table", ja.getTableName());
-					jo.put("id", names[0]);
+					//假定关联只有一个字段
+					jo.put("id", foreignKeys[0]);
 					jo.put("type", idType.getName());
 					association.put(jo);
 					associations.put(association);
-					//假定关联只有一个字段
 				} else {
 					joProperties.put(property, type.getName());
 				}

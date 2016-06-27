@@ -23,6 +23,10 @@
 		
 		<!-- 项目 -->
         <mapping resource="hibernate/singlevalue.hbm.xml"/>
+        <mapping resource="hibernate/param.hbm.xml"/>
+        <mapping resource="hibernate/任务.hbm.xml"/>
+        <mapping resource="hibernate/任务分派.hbm.xml"/>
+        <mapping resource="hibernate/项目.hbm.xml"/>
 		
 	</session-factory>
   

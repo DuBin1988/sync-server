@@ -1,6 +1,5 @@
 package com.aote.rs;
 
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -27,7 +26,7 @@ import org.hibernate.SessionFactory;
 import org.hibernate.collection.internal.PersistentSet;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.metadata.ClassMetadata;
-import org.hibernate.type.ManyToOneType;
+import org.hibernate.persister.entity.AbstractEntityPersister;
 import org.hibernate.type.SetType;
 import org.hibernate.type.Type;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,69 +52,73 @@ public class DBService {
 	@Path("meta")
 	@POST
 	@Produces(MediaType.APPLICATION_JSON)
-	public String getMetaOfTables(String tables) 
+	public String getMetaOfTables(String tables) throws Exception 
 	{		
-		return getMetas(tables).toString();
+		return getMeta(tables).toString();
 	}
 	
-	public JSONObject getMetas(@QueryParam("tables") String tables) {
-		String[] sTables = null;
-		// 不为空，是要取的表数据名称
-		if (tables != null) {
-			sTables = tables.split(",");
-			Arrays.sort(sTables);
-		}
-
+	/**
+	 * 得到实体的元数据和关联信息
+	 * @param entityName
+	 * @return
+	 * @throws Exception
+	 */
+	public JSONObject getMeta(@QueryParam("tables") String entityName) throws Exception {
+		String[] entities = entityName.split(",");
+		
 		JSONObject result = new JSONObject();
-		// 获取所有实体
-		Map<String, ClassMetadata> map = sessionFactory.getAllClassMetadata();
-		for (Map.Entry<String, ClassMetadata> entry : map.entrySet()) {
-			try {
-				String key = entry.getKey();
-
-				// 如果key不在所需表名里面
-				if (sTables != null && Arrays.binarySearch(sTables, key) == -1) {
-					continue;
+		
+		for(String entity : entities) {
+			JSONArray associations = new JSONArray();
+			ClassMetadata cmd = sessionFactory.getClassMetadata(entity);
+			JSONObject joProperties = new JSONObject();
+			//记录表名
+			joProperties.put("__table__", ((AbstractEntityPersister) cmd).getTableName());
+			for (String property : cmd.getPropertyNames()) {
+				Type type = cmd.getPropertyType(property);
+				if(type instanceof SetType) {
+					//获取关联字段
+					SetType st = (SetType)type;
+					SessionFactoryImplementor sf = (SessionFactoryImplementor) sessionFactory;
+					
+					JSONArray association = new JSONArray();
+					String idName = cmd.getIdentifierPropertyName();
+					Type idType = cmd.getIdentifierType();
+					JSONObject jo = new JSONObject();
+					jo.put("entity", entity);
+					jo.put("table", ((AbstractEntityPersister) cmd).getTableName());
+					jo.put("id", idName);
+					jo.put("type", idType.getName());
+					association.put(jo);
+					jo = new JSONObject();
+					org.hibernate.persister.entity.Joinable ja = st.getAssociatedJoinable(sf);
+					String[] names = ja.getKeyColumnNames();
+					jo.put("entity", st.getAssociatedEntityName(sf));
+					jo.put("table", ja.getTableName());
+					jo.put("id", names[0]);
+					jo.put("type", idType.getName());
+					association.put(jo);
+					associations.put(association);
+					//假定关联只有一个字段
+				} else {
+					joProperties.put(property, type.getName());
 				}
-
-				JSONObject attrs = new JSONObject();
-				for (String name : entry.getValue().getPropertyNames()) {
-					Type type = entry.getValue().getPropertyType(name);
-					attrs.put(name, TypeToString(type));
-				}
-				// 添加id，id号没有当做属性获取
-				String idName = entry.getValue().getIdentifierPropertyName();
-				Type idType = entry.getValue().getIdentifierType();
-				attrs.put(idName, TypeToString(idType));
-				result.put(key, attrs);
-			} catch (JSONException e) {
-				throw new WebApplicationException(400);
 			}
+			// 添加id，id号没有当做属性获取
+			String idName = cmd.getIdentifierPropertyName();
+			Type idType = cmd.getIdentifierType();
+			//记录主键
+			JSONObject jp = new JSONObject();
+			jp.put("id", idName);
+			jp.put("type", idType.getName());
+			joProperties.put("__primary__key__", jp);			
+			joProperties.put(idName, idType.getName());
+			joProperties.put("__associations__", associations);
+			result.put(entity, joProperties);
 		}
-		log.debug(result);
 		return result;
-	}
-
-	private String TypeToString(Type type) {
-		if (type instanceof ManyToOneType) {
-			ManyToOneType t = (ManyToOneType) type;
-			String entityName = t.getAssociatedEntityName();
-			return entityName;
-		} else if (type instanceof SetType) {
-			String entityName = getCollectionEntityName((SetType) type);
-			return entityName + "[]";
-		} else {
-			return type.getName();
-		}
-	}
-
-	// 得到集合类型的关联实体类型
-	private String getCollectionEntityName(SetType type) {
-		SessionFactoryImplementor sf = (SessionFactoryImplementor) sessionFactory;
-		String entityName = type.getAssociatedEntityName(sf);
-		return entityName;
-	}
-
+	}	
+	
 	@GET
 	@Path("/one/{hql}")
 	@Produces(MediaType.APPLICATION_JSON)

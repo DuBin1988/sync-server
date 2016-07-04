@@ -29,7 +29,8 @@ import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.metadata.ClassMetadata;
 import org.hibernate.persister.entity.AbstractEntityPersister;
 import org.hibernate.persister.entity.EntityPersister;
-import org.hibernate.type.SetType;
+import org.hibernate.type.CollectionType;
+import org.hibernate.type.ManyToOneType;
 import org.hibernate.type.Type;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -72,27 +73,28 @@ public class DBService {
 		
 		for(String entity : entities) {
 			JSONArray associations = new JSONArray();
+			JSONArray columns = new JSONArray();
 			ClassMetadata cmd = sessionFactory.getClassMetadata(entity);
 			JSONObject joProperties = new JSONObject();
 			//记录表名
 			joProperties.put("__table__", ((AbstractEntityPersister) cmd).getTableName());
+			joProperties.put("__columns__", columns);			
 			for (String property : cmd.getPropertyNames()) {
 				Type type = cmd.getPropertyType(property);
-				if(type instanceof SetType) {
+				if(type instanceof CollectionType) {
 					//获取关联字段
-					SetType st = (SetType)type;
+					CollectionType st = (CollectionType)type;
 					SessionFactoryImplementor sf = (SessionFactoryImplementor) sessionFactory;
 					org.hibernate.persister.entity.Joinable ja = st.getAssociatedJoinable(sf);
-					JSONArray association = new JSONArray();
 					String idName = cmd.getIdentifierPropertyName();
 					Type idType = cmd.getIdentifierType();
 					JSONObject jo = new JSONObject();
 					jo.put("entity", entity);
 					jo.put("table", ((AbstractEntityPersister) cmd).getTableName());
-					jo.put("id", idName);
+					jo.put("key", idName);
 					jo.put("type", idType.getName());
 					//去掉entity.
-					jo.put("link", ja.getName().substring(entity.length()+1));
+					jo.put("collection", ja.getName().substring(entity.length()+1));
 					
 					EntityPersister ps = sf.getEntityPersister(entity);
 					CascadeStyle[] ccs = ps.getPropertyCascadeStyles();
@@ -102,18 +104,22 @@ public class DBService {
 					}
 					jo.put("cascade", ccsOptions.length() > 0 ? ccsOptions.substring(1).replace("STYLE_NONE,", "").replace("[", "").replace("]", "") : "");
 					
-					association.put(jo);
-					jo = new JSONObject();
 					String[] foreignKeys = ja.getKeyColumnNames();
-					jo.put("entity", st.getAssociatedEntityName(sf));
-					jo.put("table", ja.getTableName());
+					jo.put("entity2", st.getAssociatedEntityName(sf));
+					jo.put("table2", ja.getTableName());
 					//假定关联只有一个字段
-					jo.put("id", foreignKeys[0]);
-					jo.put("type", idType.getName());
-					association.put(jo);
-					associations.put(association);
+					jo.put("key2", foreignKeys[0]);
+					associations.put(jo);
 				} else {
-					joProperties.put(property, type.getName());
+					if(type instanceof ManyToOneType)
+						continue;
+					String columnName = ((AbstractEntityPersister) cmd).getPropertyColumnNames(property)[0];
+					JSONObject colJo = new JSONObject();
+					colJo.put("attr", property);
+					colJo.put("column", columnName);
+					colJo.put("type", type.getName());
+					columns.put(colJo);
+					joProperties.put(columnName, type.getName());
 				}
 			}
 			// 添加id，id号没有当做属性获取

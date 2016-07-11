@@ -1,0 +1,15 @@
+log.debug($data.f_way={data.f_way}$),
+
+// 保存任务分发过程
+entity.save($t_taskdispatch$, data),
+
+// 更新任务内容
+sql.run($
+
+update t_task set
+  f_actor='{data.f_actor}',
+  f_way='{data.f_way}',
+  f_musttime='{data.f_musttime}'
+where id={data.f_taskid}
+
+$)

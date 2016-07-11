@@ -1,0 +1,8 @@
+// 更新项目内容
+sql.run($
+
+update t_task set
+ f_name='新3' 
+where id=11
+
+$)

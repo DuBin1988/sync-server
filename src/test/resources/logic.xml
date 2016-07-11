@@ -1,0 +1,5 @@
+﻿<cfg>
+	<logic alias='保存实体' path='EntitySave.logic'/>
+	<logic alias='执行SQL' path='SqlExecute.logic'/>
+	<logic alias='任务分发' path='任务/任务分发.logic'/>
+</cfg>

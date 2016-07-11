@@ -1,0 +1,9 @@
+﻿<cfg>
+	<sql alias='项目汇总' path='项目汇总.sql'/>
+
+	<sql alias='项目查询' path='project.sql'/>
+	<sql alias='任务查询' path='任务/任务查询.sql'/>
+
+	<!--测试错误sql-->
+	<sql alias='error' path='error.sql'/>
+</cfg>

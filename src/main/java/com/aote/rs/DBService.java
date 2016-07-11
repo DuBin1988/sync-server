@@ -111,15 +111,17 @@ public class DBService {
 					jo.put("key2", foreignKeys[0]);
 					associations.put(jo);
 				} else {
-					if(type instanceof ManyToOneType)
+					if(type instanceof ManyToOneType) {
 						continue;
-					String columnName = ((AbstractEntityPersister) cmd).getPropertyColumnNames(property)[0];
-					JSONObject colJo = new JSONObject();
-					colJo.put("attr", property);
-					colJo.put("column", columnName);
-					colJo.put("type", type.getName());
-					columns.put(colJo);
-					joProperties.put(columnName, type.getName());
+					} else {
+						String columnName = ((AbstractEntityPersister) cmd).getPropertyColumnNames(property)[0];
+						JSONObject colJo = new JSONObject();
+						colJo.put("attr", property);
+						colJo.put("column", columnName);
+						colJo.put("type", type.getName());
+						columns.put(colJo);
+						joProperties.put(columnName, type.getName());
+					}
 				}
 			}
 			// 添加id，id号没有当做属性获取
